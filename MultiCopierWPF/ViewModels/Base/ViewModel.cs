@@ -24,6 +24,7 @@ internal abstract class ViewModel : INotifyPropertyChanged
             return false;
         }
 
+        field = value;
         OnPropertyChanged(propertyName);
 
         return true;
