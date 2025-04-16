@@ -9,9 +9,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Services\" />
-    <Folder Include="Models\" />
-    <Folder Include="Data\" />
+    <Compile Remove="Data\**" />
+    <Compile Remove="Services\**" />
+    <EmbeddedResource Remove="Data\**" />
+    <EmbeddedResource Remove="Services\**" />
+    <None Remove="Data\**" />
+    <None Remove="Services\**" />
+    <Page Remove="Data\**" />
+    <Page Remove="Services\**" />
   </ItemGroup>
 
   <ItemGroup>
