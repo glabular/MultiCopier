@@ -3,6 +3,6 @@
 public enum BackupStatus
 {
     Processing,
-    Success,
+    OK,
     Failed
 }

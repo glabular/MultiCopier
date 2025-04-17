@@ -31,11 +31,12 @@
                 Command="{Binding AddBackupCommand}"
                 Content="+ Add Backup" />
 
-            <!--  Backup button in the center  -->
+            <!--  Backup now button  -->
             <Button
                 Grid.Column="1"
                 Width="100"
                 HorizontalAlignment="Center"
+                Command="{Binding BackupCommand}"
                 Content="Back up now!" />
         </Grid>
 
@@ -64,7 +65,7 @@
                         VerticalContentAlignment="Center"
                         Background="#F0F8FF"
                         FontWeight="Bold"
-                        Text="C:\SourceFolder" />
+                        Text="{Binding MasterFolder, UpdateSourceTrigger=PropertyChanged}" />
                 </DockPanel>
             </Border>
 
