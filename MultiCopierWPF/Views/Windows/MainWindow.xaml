@@ -4,37 +4,42 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:cmd="clr-namespace:MultiCopierWPF.Infrastructure.Commands"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:gif="http://wpfanimatedgif.codeplex.com"
     xmlns:l="clr-namespace:MultiCopierWPF"
+    xmlns:local="clr-namespace:MultiCopierWPF.Converters"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:MultiCopierWPF.ViewModels"
     Title="{Binding Title}"
     Width="650"
     Height="450"
+    DataContext="{Binding MainWindowViewModel, Source={StaticResource ViewModelLocator}}"
+    ResizeMode="CanMinimize"
+    WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
-    <Window.DataContext>
+    <Window.InputBindings>
+        <KeyBinding
+            Key="S"
+            Command="{Binding ShallowCheckCommand}"
+            Modifiers="Control + Shift" />
+    </Window.InputBindings>
+    <!--<Window.DataContext>
         <vm:MainWindowViewModel />
-    </Window.DataContext>
+    </Window.DataContext>-->
+
+    <Window.Resources>
+        <local:StatusToVisibilityConverter x:Key="StatusToVisibilityConverter" />
+    </Window.Resources>
 
     <DockPanel>
         <Grid Margin="20,10,20,20" DockPanel.Dock="Bottom">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-
-            <!--  Add button on the left  -->
-            <Button
-                Grid.Column="0"
-                Width="120"
-                HorizontalAlignment="Left"
-                Command="{Binding AddBackupCommand}"
-                Content="+ Add Backup" />
 
             <!--  Backup now button  -->
             <Button
                 Grid.Column="1"
-                Width="100"
+                Width="120"
                 HorizontalAlignment="Center"
                 Command="{Binding BackupCommand}"
                 Content="Back up now!" />
@@ -42,11 +47,27 @@
 
         <StackPanel Margin="10">
             <!--  Label for main source folder  -->
-            <TextBlock
-                Margin="0,0,0,5"
-                FontSize="14"
-                FontWeight="Bold"
-                Text="Main Folder:" />
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!--  Master Folder Label  -->
+                <TextBlock
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    FontSize="14"
+                    FontWeight="Bold"
+                    Text="Main Folder" />
+
+                <Button
+                    Grid.Column="1"
+                    Width="120"
+                    HorizontalAlignment="Left"
+                    Command="{Binding SetMasterFolderCommand}"
+                    Content="{Binding MasterFolderButtonText}" />
+            </Grid>
 
             <!--  Main source folder  -->
             <Border
@@ -65,16 +86,34 @@
                         VerticalContentAlignment="Center"
                         Background="#F0F8FF"
                         FontWeight="Bold"
+                        IsReadOnly="True"
                         Text="{Binding MasterFolder, UpdateSourceTrigger=PropertyChanged}" />
                 </DockPanel>
             </Border>
 
             <!--  Backup locations  -->
-            <TextBlock
-                Margin="0,0,0,10"
-                FontSize="14"
-                FontWeight="Bold"
-                Text="Backups:" />
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!--  Backups Label  -->
+                <TextBlock
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    FontSize="14"
+                    FontWeight="Bold"
+                    Text="Backups" />
+
+                <Button
+                    Grid.Column="1"
+                    Width="120"
+                    HorizontalAlignment="Left"
+                    Command="{Binding AddBackupCommand}"
+                    Content="+ Add Backup" />
+            </Grid>
+
 
             <ScrollViewer MaxHeight="230" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding BackupLocations}">
@@ -93,28 +132,36 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
-                                    <TextBlock
+                                    <!--  Status Icon or Animation  -->
+                                    <Grid
                                         Grid.Column="0"
                                         Margin="0,0,5,0"
-                                        VerticalAlignment="Center"
-                                        FontSize="16">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="✔" />
-                                                <Setter Property="Foreground" Value="Green" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Status}" Value="Processing">
-                                                        <Setter Property="Text" Value="⏳" />
-                                                        <Setter Property="Foreground" Value="Orange" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Status}" Value="Failed">
-                                                        <Setter Property="Text" Value="❌" />
-                                                        <Setter Property="Foreground" Value="Red" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                        VerticalAlignment="Center">
+                                        <!--  ✔ OK  -->
+                                        <TextBlock
+                                            FontSize="16"
+                                            Foreground="Green"
+                                            Text="✔"
+                                            Visibility="{Binding Status, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=OK}" />
+                                        <!--  ❌ Failed  -->
+                                        <TextBlock
+                                            FontSize="16"
+                                            Foreground="Red"
+                                            Text="❌"
+                                            Visibility="{Binding Status, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=Failed}" />
+                                        <!--  ❔ Unknown  -->
+                                        <TextBlock
+                                            FontSize="16"
+                                            Foreground="Gray"
+                                            Text="❔"
+                                            Visibility="{Binding Status, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=Unknown}" />
+                                        <!--  ⏳ GIF for Processing  -->
+                                        <Image
+                                            Width="16"
+                                            Height="16"
+                                            gif:ImageBehavior.AnimatedSource="/Assets/3-dots-loading.gif"
+                                            Visibility="{Binding Status, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=Processing}" />
+                                    </Grid>
 
                                     <!--  Path textbox  -->
                                     <TextBox
@@ -122,6 +169,7 @@
                                         VerticalContentAlignment="Center"
                                         Background="Transparent"
                                         BorderThickness="0"
+                                        IsReadOnly="True"
                                         Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" />
 
                                     <!--  Remove button  -->
@@ -142,7 +190,6 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
-
 
 
         </StackPanel>

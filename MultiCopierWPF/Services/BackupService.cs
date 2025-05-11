@@ -1,153 +1,145 @@
-﻿using MultiCopierWPF.ViewModels;
+﻿using Microsoft.EntityFrameworkCore;
+using MultiCopierWPF.Data;
+using MultiCopierWPF.Exceptions;
+using MultiCopierWPF.Interfaces;
+using MultiCopierWPF.Models;
+using MultiCopierWPF.Utilities;
 using System.IO;
 
 namespace MultiCopierWPF.Services;
 
-public class BackupService
+public class BackupService : IBackupService
 {
-    public static async Task RunBackupAsync(string masterFolder, IEnumerable<string> backupFolders)
+    private readonly BackupDbContext _context;
+    private readonly IFolderSyncService _folderSyncService;
+    private readonly IHashCalculator _hashCalculator;
+
+    public BackupService(BackupDbContext context, IFolderSyncService folderSyncService, IHashCalculator hashCalculator)
     {
-        ValidateMasterFolder(masterFolder);
-        ValidateBackupPaths(backupFolders);
-        EnsureEnoughDiskSpace(masterFolder, backupFolders);
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _folderSyncService = folderSyncService ?? throw new ArgumentNullException(nameof(folderSyncService));
+        _hashCalculator = hashCalculator ?? throw new ArgumentNullException(nameof(hashCalculator));
+    }
 
-        var sourceDir = new DirectoryInfo(masterFolder);
+    public async Task RunBackupAsync(string masterFolder, string backupFolder)
+    {
+        Guard.AgainstInvalidPath(masterFolder, nameof(masterFolder));
+        Guard.AgainstInvalidPath(backupFolder, nameof(backupFolder));
 
-        // Perform backup to each destination
-        foreach (var backupFolder in backupFolders)
+        var masterDirInfo = new DirectoryInfo(masterFolder);
+        var backupDirInfo = new DirectoryInfo(backupFolder);
+
+        // Abort the backup if the target backup location doesn't have enough free space.
+        FileSystemHelper.EnsureEnoughDiskSpace(masterDirInfo, backupFolder);
+
+        await Task.Run(() =>
         {
-            var targetDir = new DirectoryInfo(backupFolder);
+            _folderSyncService.Mirror(masterDirInfo, backupDirInfo);
+        });
 
-            await Task.Run(() =>
-            {
-                CleanExtraFiles(sourceDir, targetDir);
-                CopyAll(sourceDir, targetDir);
-            });
-        }
-
-        // Future: Add encryption and log metadata to DB here
+        await EnsureFolderCountsMatch(masterFolder, backupFolder);
     }
 
     /// <summary>
-    /// Recursively copies all files and directories from source to target.
+    /// Ensures that the database mirrors the master folder.
     /// </summary>
-    private static void CopyAll(DirectoryInfo source, DirectoryInfo target)
+    public async Task AlignMasterWithDatabaseAsync(string masterFolder)
     {
-        Directory.CreateDirectory(target.FullName);
+        // The state of files in the master folder.
+        var masterFolderContents = await DirectoryScanner.GetMasterFolderFilesAsync(masterFolder);
 
-        // Copy each file into the new directory.
-        foreach (var fi in source.GetFiles())
-        {
-            fi.CopyTo(Path.Combine(target.FullName, fi.Name), true);
-        }
+        var scannedPaths = new HashSet<string>(masterFolderContents.Select(f => f.FullPath));
 
-        // Copy each subdirectory.
-        foreach (var diSourceSubDir in source.GetDirectories())
+        // Load existing DB entries into dictionary for quick lookup
+        var entries = await LoadDbEntriesAsync(); // Dictionary<string fullPath, BackupEntry>
+
+        var deleted = new List<BackupEntry>();
+        var updated = new List<BackupEntry>();
+        var added = new List<BackupEntry>();
+
+        await Task.Run(() =>
         {
-            var nextTargetSubDir = target.CreateSubdirectory(diSourceSubDir.Name);
-            CopyAll(diSourceSubDir, nextTargetSubDir);
+            var scannedPaths = new HashSet<string>(masterFolderContents.Select(f => f.FullPath));
+
+            // Detect deleted files (in DB but not in master folder)
+            foreach (var dbEntry in entries)
+            {
+                if (!scannedPaths.Contains(dbEntry.Key))
+                {
+                    deleted.Add(dbEntry.Value);
+                }
+            }
+
+            // Detect new & modified files
+            foreach (var scannedFile in masterFolderContents)
+            {
+                if (!entries.TryGetValue(scannedFile.FullPath, out var dbEntry))
+                {
+                    // New file - add to DB
+                    var sha = _hashCalculator.ComputeHash(scannedFile.FullPath);
+
+                    var entry = new BackupEntry(scannedFile.FileName, scannedFile.FullPath, sha, scannedFile.FileSize)
+                    {
+                        LastModified = scannedFile.LastModified
+                    };
+
+                    added.Add(entry);
+                }
+                else if (scannedFile.FileSize != dbEntry.FileSize ||
+                     scannedFile.LastModified != dbEntry.LastModified)
+                {
+                    // Likely modified — calculate SHA to confirm
+                    var sha = _hashCalculator.ComputeHash(scannedFile.FullPath);
+
+                    if (sha != dbEntry.SHA512)
+                    {
+                        dbEntry.SHA512 = sha;
+                        dbEntry.FileSize = scannedFile.FileSize;
+                        dbEntry.LastModified = scannedFile.LastModified;
+                        updated.Add(dbEntry);
+                    }
+                }
+            }
+        });
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        // Remove deleted entries
+        _context.BackupEntries.RemoveRange(deleted);
+
+        // Add new files
+        await _context.BackupEntries.AddRangeAsync(added);
+
+        // Update modified files
+        _context.BackupEntries.UpdateRange(updated);
+
+        await _context.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        // Commit transaction and flush WAL changes to the main database file
+        await _context.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(FULL);");
+
+        // Run VACUUM only if deleted count is large enough (e.g., 1000 or more)
+        if (deleted.Count >= 1000)
+        {
+            await _context.Database.ExecuteSqlRawAsync("VACUUM;");
         }
     }
 
-    private static void EnsureEnoughDiskSpace(string sourceFolder, IEnumerable<string> backupFolders)
+    private async Task<Dictionary<string, BackupEntry>> LoadDbEntriesAsync()
     {
-        var requiredSpace = CalculateDirectorySize(new DirectoryInfo(sourceFolder));
-
-        foreach (var backupPath in backupFolders)
-        {
-            var drive = new DriveInfo(Path.GetPathRoot(backupPath)!);
-            if (drive.AvailableFreeSpace < requiredSpace)
-            {
-                throw new IOException($"Not enough free space on drive '{drive.Name}' for backup to '{backupPath}'. " +
-                                      $"Required: {requiredSpace / (1024 * 1024)} MB, Available: {drive.AvailableFreeSpace / (1024 * 1024)} MB.");
-            }
-        }
+        var entries = await _context.BackupEntries.ToListAsync();
+        return entries.ToDictionary(e => e.OriginalFilePath);
     }
 
-    private static long CalculateDirectorySize(DirectoryInfo directory)
+    private static async Task EnsureFolderCountsMatch(string masterFolder, string backupFolder)
     {
-        long size = 0;
+        var result = await FolderComparer.CompareCountAsync(masterFolder, backupFolder);
 
-        // Add file sizes
-        foreach (var file in directory.GetFiles("*", SearchOption.AllDirectories))
+        if (result.HasMismatch)
         {
-            size += file.Length;
+            throw new FolderMismatchException(backupFolder, result.FileMismatchCount, result.DirectoryMismatchCount);
         }
-
-        return size;
-    }
-
-    // Remove files not present in source
-    private static void CleanExtraFiles(DirectoryInfo source, DirectoryInfo target)
-    {
-        var sourceFiles = source.GetFiles().Select(f => f.Name).ToHashSet();
-        foreach (var file in target.GetFiles())
-        {
-            if (!sourceFiles.Contains(file.Name))
-            {
-                file.Delete();
-            }
-        }
-
-        // Recursively clean subdirectories
-        var sourceDirs = source.GetDirectories().Select(d => d.Name).ToHashSet();
-        foreach (var dir in target.GetDirectories())
-        {
-            if (sourceDirs.Contains(dir.Name))
-            {
-                var matchingSourceDir = source.GetDirectories().First(d => d.Name == dir.Name);
-                CleanExtraFiles(matchingSourceDir, dir);
-            }
-            else
-            {
-                dir.Delete(true);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Validates that the master folder exists.
-    /// </summary>
-    /// <param name="masterPath">The path to the master folder.</param>
-    /// <exception cref="DirectoryNotFoundException">Thrown if the master folder does not exist.</exception>
-    private static void ValidateMasterFolder(string masterPath)
-    {
-        if (string.IsNullOrWhiteSpace(masterPath))
-        {
-            throw new ArgumentException("Master folder path is null or whitespace.", nameof(masterPath));
-        }
-
-        if (!Directory.Exists(masterPath))
-        {
-            throw new DirectoryNotFoundException($"Master folder does not exist: {masterPath}");
-        }
-    }
-
-    /// <summary>
-    /// Validates that each backup path is non-null, non-empty, and exists.
-    /// </summary>
-    /// <param name="backupPaths">A list of paths to backup folders.</param>
-    /// <exception cref="ArgumentNullException">Thrown if the collection is null.</exception>
-    /// <exception cref="InvalidOperationException">Thrown if any path is null, empty, or whitespace.</exception>
-    /// <exception cref="DirectoryNotFoundException">Thrown if any path does not exist.</exception>
-    private static void ValidateBackupPaths(IEnumerable<string> backupPaths)
-    {
-        if (backupPaths is null)
-        {
-            throw new ArgumentNullException(nameof(backupPaths), "Backup paths collection is null.");
-        }
-
-        foreach (var path in backupPaths)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                throw new InvalidOperationException("A backup path is empty or null.");
-            }
-
-            if (!Directory.Exists(path))
-            {
-                throw new DirectoryNotFoundException($"Backup folder does not exist: {path}");
-            }
-        }
-    }
+    }      
 }

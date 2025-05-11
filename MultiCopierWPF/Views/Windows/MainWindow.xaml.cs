@@ -1,23 +1,24 @@
-﻿using System.Text;
+﻿using MultiCopierWPF.ViewModels;
+using System.ComponentModel;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace MultiCopierWPF;
 
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
 public partial class MainWindow : Window
 {
     public MainWindow()
     {
         InitializeComponent();
+        //DataContext = App.AppHost!.Services.GetRequiredService<MainWindowViewModel>();
+        Closing += OnWindowClosing;
+    }
+
+    private void OnWindowClosing(object? sender, CancelEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm && vm.IsBackupInProgress)
+        {
+            System.Windows.MessageBox.Show("Backup is in progress. Please wait until it finishes.", "Backup Running", MessageBoxButton.OK, MessageBoxImage.Warning);
+            e.Cancel = true;
+        }
     }
 }
