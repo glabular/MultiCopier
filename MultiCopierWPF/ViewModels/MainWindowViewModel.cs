@@ -28,7 +28,6 @@ public class MainWindowViewModel : ViewModel
 
     private readonly ISettingsService _settingsManager;
 
-
     private ObservableCollection<BackupLocationViewModel> _backupLocations = [];
     #endregion
 
@@ -58,7 +57,7 @@ public class MainWindowViewModel : ViewModel
     /// <summary>
     /// Window title.
     /// </summary>
-    public static string? Title => "MultiCopier v0.1.0 [Stable]";
+    public static string? Title => "MultiCopier v0.1.2 [Stable]";
 
     public string? MasterFolder
     {
@@ -356,6 +355,12 @@ public class MainWindowViewModel : ViewModel
         {
             var selectedPath = dialog.SelectedPath;
 
+            if (IsFolderInvalid(selectedPath))
+            {
+                MessageBox.Show("The selected folder does not exist.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             var simulatedList = BackupLocations
                 .Select(b => b.Path)
                 .Where(p => p != null)
@@ -366,6 +371,26 @@ public class MainWindowViewModel : ViewModel
             {
                 MessageBox.Show(errorMessage, "Cannot Add Backup Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
+            }
+
+            var dirInfo = new DirectoryInfo(selectedPath);
+            var entries = dirInfo.EnumerateFileSystemInfos().ToList();
+
+            if (entries.Count != 0)
+            {
+                var itemCount = entries.Count;
+                var response = MessageBox.Show(
+                    $"The selected folder is not empty and contains {itemCount} item{(itemCount == 1 ? string.Empty : "s")}. " +
+                    "Are you sure you want to use it as a backup location? All existing content may be overwritten or deleted.",
+                    "Folder Not Empty",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning
+                );
+
+                if (response != MessageBoxResult.Yes)
+                {
+                    return;
+                }
             }
 
             var vm = new BackupLocationViewModel
