@@ -11,12 +11,18 @@
 
   <ItemGroup>
     <None Remove="Assets\3-dots-loading.gif" />
+    <None Remove="Assets\Icon\64x64.ico" />
+    <None Remove="Assets\Icon\icon.ico" />
+    <None Remove="Assets\Icon\icon2.png" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Assets\3-dots-loading.gif">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
+    <Content Include="Assets\Icon\64x64.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
