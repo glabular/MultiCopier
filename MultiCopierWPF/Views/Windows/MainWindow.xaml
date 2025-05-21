@@ -114,7 +114,6 @@
                     Content="+ Add Backup" />
             </Grid>
 
-
             <ScrollViewer MaxHeight="230" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding BackupLocations}">
                     <ItemsControl.ItemTemplate>
@@ -127,7 +126,7 @@
                                 CornerRadius="4">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="25" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
