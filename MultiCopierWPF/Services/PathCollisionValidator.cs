@@ -3,8 +3,18 @@ using System.IO;
 
 namespace MultiCopierWPF.Services;
 
+/// <summary>
+/// Provides validation for folder path configurations to prevent conflicts and unsafe copying behaviors.
+/// </summary>
 public static class PathCollisionValidator
 {
+    /// <summary>
+    /// Validates that the master folder and backup folders do not conflict (e.g. duplicates, overlaps, nesting).
+    /// </summary>
+    /// <param name="masterPath">The full path to the master folder.</param>
+    /// <param name="backupPaths">A collection of backup folder paths to validate against the master.</param>
+    /// <param name="errorMessage">An error message describing the validation failure, if any.</param>
+    /// <returns><c>true</c> if validation passes; otherwise, <c>false</c> with an appropriate error message.</returns>
     public static bool TryValidate(string masterPath, IEnumerable<string> backupPaths, out string? errorMessage)
     {
         errorMessage = null;

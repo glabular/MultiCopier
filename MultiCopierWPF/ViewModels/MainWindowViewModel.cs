@@ -47,7 +47,7 @@ public class MainWindowViewModel : ViewModel
         RemoveBackupCommand = new RelayCommand(OnRemoveBackupExecuted, CanRemoveBackupExecute);
         SetMasterFolderCommand = new RelayCommand(OnSetMasterFolderExecuted);
 
-        LoadBackupLocationsFromSettings();
+        InitializeLocations();
 
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
     }
@@ -135,9 +135,9 @@ public class MainWindowViewModel : ViewModel
             }
 
             // Adds a short delay so the "OK" status doesn't appear too quickly, giving the user time to notice the update.
-            await Task.Delay(new Random().Next(100, 400));
+            await Task.Delay(350);
 
-            await _backupService.AlignMasterWithDatabaseAsync(MasterFolder!);            
+            //await _backupService.AlignMasterWithDatabaseAsync(MasterFolder!);            
 
             foreach (var location in BackupLocations)
             {
@@ -302,7 +302,11 @@ public class MainWindowViewModel : ViewModel
         return string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath);
     }
 
-    private void LoadBackupLocationsFromSettings()
+
+    /// <summary>
+    /// Loads master folder and backup locations from settings.
+    /// </summary> 
+    private void InitializeLocations()
     {
         if (_settings.BackupFolders is not null)
         {
