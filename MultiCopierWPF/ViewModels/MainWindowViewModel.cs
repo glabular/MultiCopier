@@ -28,7 +28,6 @@ public class MainWindowViewModel : ViewModel
 
     private readonly ISettingsService _settingsManager;
 
-
     private ObservableCollection<BackupLocationViewModel> _backupLocations = [];
     #endregion
 
@@ -39,7 +38,7 @@ public class MainWindowViewModel : ViewModel
 
     public MainWindowViewModel(IBackupService backupService, ISettingsService settingsManager)
     {
-        _settingsManager = settingsManager ?? throw new ArgumentNullException(nameof(settingsManager)); 
+        _settingsManager = settingsManager ?? throw new ArgumentNullException(nameof(settingsManager));
         _settings = settingsManager.Load();
 
         AddBackupCommand = new RelayCommand(OnAddBackupExecuted, CanAddBackupExecute);
@@ -48,7 +47,7 @@ public class MainWindowViewModel : ViewModel
         RemoveBackupCommand = new RelayCommand(OnRemoveBackupExecuted, CanRemoveBackupExecute);
         SetMasterFolderCommand = new RelayCommand(OnSetMasterFolderExecuted);
 
-        LoadBackupLocationsFromSettings();
+        InitializeLocations();
 
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
     }
@@ -58,7 +57,7 @@ public class MainWindowViewModel : ViewModel
     /// <summary>
     /// Window title.
     /// </summary>
-    public static string? Title => "MultiCopier v0.1.0 [Stable]";
+    public static string? Title => "MultiCopier v0.1.2 [Stable]";
 
     public string? MasterFolder
     {
@@ -136,9 +135,9 @@ public class MainWindowViewModel : ViewModel
             }
 
             // Adds a short delay so the "OK" status doesn't appear too quickly, giving the user time to notice the update.
-            await Task.Delay(new Random().Next(100, 400));
+            await Task.Delay(350);
 
-            await _backupService.AlignMasterWithDatabaseAsync(MasterFolder!);            
+            //await _backupService.AlignMasterWithDatabaseAsync(MasterFolder!);            
 
             foreach (var location in BackupLocations)
             {
@@ -193,7 +192,7 @@ public class MainWindowViewModel : ViewModel
                     }
                 }
             }
-        }        
+        }
         catch (Exception ex)
         {
             foreach (var location in BackupLocations)
@@ -289,7 +288,7 @@ public class MainWindowViewModel : ViewModel
     {
         return !string.IsNullOrWhiteSpace(MasterFolder) && BackupLocations.Any();
     }
-    
+
     /// <summary>
     /// Validates whether the specified folder path is set and exists on disk.
     /// </summary>
@@ -303,8 +302,23 @@ public class MainWindowViewModel : ViewModel
         return string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath);
     }
 
-    private void LoadBackupLocationsFromSettings()
+
+    /// <summary>
+    /// Loads master folder and backup locations from settings.
+    /// </summary> 
+    private void InitializeLocations()
     {
+        if (_settings == null)
+        {
+            MessageBox.Show(
+                "Application settings could not be loaded. Please check your configuration and try again.",
+                "Settings not found",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            return;
+        }
+
         if (_settings.BackupFolders is not null)
         {
             foreach (var setting in _settings.BackupFolders)
@@ -356,6 +370,12 @@ public class MainWindowViewModel : ViewModel
         {
             var selectedPath = dialog.SelectedPath;
 
+            if (IsFolderInvalid(selectedPath))
+            {
+                MessageBox.Show("The selected folder does not exist.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             var simulatedList = BackupLocations
                 .Select(b => b.Path)
                 .Where(p => p != null)
@@ -366,6 +386,26 @@ public class MainWindowViewModel : ViewModel
             {
                 MessageBox.Show(errorMessage, "Cannot Add Backup Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
+            }
+
+            var dirInfo = new DirectoryInfo(selectedPath);
+            var entries = dirInfo.EnumerateFileSystemInfos().ToList();
+
+            if (entries.Count != 0)
+            {
+                var itemCount = entries.Count;
+                var response = MessageBox.Show(
+                    $"The selected folder is not empty and contains {itemCount} item{(itemCount == 1 ? string.Empty : "s")}. " +
+                    "Are you sure you want to use it as a backup location? All existing content may be overwritten or deleted.",
+                    "Folder Not Empty",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning
+                );
+
+                if (response != MessageBoxResult.Yes)
+                {
+                    return;
+                }
             }
 
             var vm = new BackupLocationViewModel
