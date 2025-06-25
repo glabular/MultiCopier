@@ -38,7 +38,7 @@ public class MainWindowViewModel : ViewModel
 
     public MainWindowViewModel(IBackupService backupService, ISettingsService settingsManager)
     {
-        _settingsManager = settingsManager ?? throw new ArgumentNullException(nameof(settingsManager)); 
+        _settingsManager = settingsManager ?? throw new ArgumentNullException(nameof(settingsManager));
         _settings = settingsManager.Load();
 
         AddBackupCommand = new RelayCommand(OnAddBackupExecuted, CanAddBackupExecute);
@@ -192,7 +192,7 @@ public class MainWindowViewModel : ViewModel
                     }
                 }
             }
-        }        
+        }
         catch (Exception ex)
         {
             foreach (var location in BackupLocations)
@@ -288,7 +288,7 @@ public class MainWindowViewModel : ViewModel
     {
         return !string.IsNullOrWhiteSpace(MasterFolder) && BackupLocations.Any();
     }
-    
+
     /// <summary>
     /// Validates whether the specified folder path is set and exists on disk.
     /// </summary>
@@ -308,6 +308,17 @@ public class MainWindowViewModel : ViewModel
     /// </summary> 
     private void InitializeLocations()
     {
+        if (_settings == null)
+        {
+            MessageBox.Show(
+                "Application settings could not be loaded. Please check your configuration and try again.",
+                "Settings not found",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            return;
+        }
+
         if (_settings.BackupFolders is not null)
         {
             foreach (var setting in _settings.BackupFolders)
