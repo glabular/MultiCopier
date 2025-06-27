@@ -21,7 +21,7 @@ public class BackupService : IBackupService
         _hashCalculator = hashCalculator ?? throw new ArgumentNullException(nameof(hashCalculator));
     }
 
-    public async Task RunBackupAsync(string masterFolder, string backupFolder)
+    public async Task RunBackupAsync(string masterFolder, string backupFolder, bool encrypt)
     {
         Guard.AgainstInvalidPath(masterFolder, nameof(masterFolder));
         Guard.AgainstInvalidPath(backupFolder, nameof(backupFolder));

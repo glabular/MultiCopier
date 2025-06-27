@@ -7,6 +7,8 @@ public class BackupLocationViewModel : ViewModel
 {
     private string? _path;
     private BackupStatus _status;
+    private bool _encryptFiles;
+
 
     public string? Path
     {
@@ -18,5 +20,11 @@ public class BackupLocationViewModel : ViewModel
     {
         get => _status;
         set => Set(ref _status, value);
+    }
+
+    public bool EncryptFiles
+    {
+        get => _encryptFiles;
+        set => Set(ref _encryptFiles, value);
     }
 }

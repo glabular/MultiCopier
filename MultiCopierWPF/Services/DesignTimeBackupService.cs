@@ -20,7 +20,7 @@ public class DesignTimeBackupService : IBackupService, ISettingsService
     }
 
     // Implement interface methods with mock/dummy data
-    public Task RunBackupAsync(string masterFolder, string backupFolder)
+    public Task RunBackupAsync(string masterFolder, string backupFolder, bool encrypt)
     {
         // No-op or return completed task
         return Task.CompletedTask;

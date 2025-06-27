@@ -2,7 +2,7 @@
 
 public interface IBackupService
 {
-    Task RunBackupAsync(string masterFolder, string backupFolder);
+    Task RunBackupAsync(string masterFolder, string backupFolder, bool encrypt);
 
     Task AlignMasterWithDatabaseAsync(string masterFolder);
 }
