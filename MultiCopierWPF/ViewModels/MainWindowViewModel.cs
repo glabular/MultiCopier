@@ -440,67 +440,69 @@ public class MainWindowViewModel : ViewModel
         };
 
         var result = dialog.ShowDialog();
-        if (result == System.Windows.Forms.DialogResult.OK)
+        if (result != System.Windows.Forms.DialogResult.OK)
         {
-            var selectedPath = dialog.SelectedPath;
-
-            if (IsFolderInvalid(selectedPath))
-            {
-                MessageBox.Show("The selected folder does not exist.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            var simulatedList = BackupLocations
-                .Select(b => b.Path)
-                .Where(p => p != null)
-                .Cast<string>()
-                .Append(selectedPath);
-
-            if (!PathCollisionValidator.TryValidate(MasterFolder!, simulatedList, out var errorMessage))
-            {
-                MessageBox.Show(errorMessage, "Cannot Add Backup Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var dirInfo = new DirectoryInfo(selectedPath);
-            var entries = dirInfo.EnumerateFileSystemInfos().ToList();
-
-            if (entries.Count != 0)
-            {
-                var itemCount = entries.Count;
-                var response = MessageBox.Show(
-                    $"The selected folder is not empty and contains {itemCount} item{(itemCount == 1 ? string.Empty : "s")}. " +
-                    "Are you sure you want to use it as a backup location? All existing content may be overwritten or deleted.",
-                    "Folder Not Empty",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning
-                );
-
-                if (response != MessageBoxResult.Yes)
-                {
-                    return;
-                }
-            }
-
-            var vm = new BackupLocationViewModel
-            {
-                Path = selectedPath,
-                Status = BackupStatus.Unknown
-            };
-
-            vm.PropertyChanged += OnEncryptFilesCheckboxToggled;
-
-            BackupLocations.Add(vm);
-
-            _settings.BackupFolders.Add(new BackupLocationSetting
-            {
-                Path = selectedPath,
-                EncryptFiles = false
-            });
-
-            _settingsManager.Save(_settings);
-            CommandManager.InvalidateRequerySuggested(); // Reevaluate CanExecute
+            return;
         }
+
+        var selectedPath = dialog.SelectedPath;
+
+        if (IsFolderInvalid(selectedPath))
+        {
+            MessageBox.Show("The selected folder does not exist.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        var simulatedList = BackupLocations
+            .Select(b => b.Path)
+            .Where(p => p != null)
+            .Cast<string>()
+            .Append(selectedPath);
+
+        if (!PathCollisionValidator.TryValidate(MasterFolder!, simulatedList, out var errorMessage))
+        {
+            MessageBox.Show(errorMessage, "Cannot Add Backup Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var dirInfo = new DirectoryInfo(selectedPath);
+        var entries = dirInfo.EnumerateFileSystemInfos().ToList();
+
+        if (entries.Count != 0)
+        {
+            var itemCount = entries.Count;
+            var response = MessageBox.Show(
+                $"The selected folder is not empty and contains {itemCount} item{(itemCount == 1 ? string.Empty : "s")}. " +
+                "Are you sure you want to use it as a backup location? All existing content may be overwritten or deleted.",
+                "Folder Not Empty",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning
+            );
+
+            if (response != MessageBoxResult.Yes)
+            {
+                return;
+            }
+        }        
+
+        var vm = new BackupLocationViewModel
+        {
+            Path = selectedPath,
+            Status = BackupStatus.Unknown
+        };
+
+        vm.PropertyChanged += OnEncryptFilesCheckboxToggled;
+
+        BackupLocations.Add(vm);
+
+        _settings.BackupFolders.Add(new BackupLocationSetting
+        {
+            Path = selectedPath,
+            EncryptFiles = false
+        });
+
+        _settingsManager.Save(_settings);
+        CommandManager.InvalidateRequerySuggested(); // Reevaluate CanExecute        
     }
 
     private void OnSetMasterFolderExecuted(object? obj)
