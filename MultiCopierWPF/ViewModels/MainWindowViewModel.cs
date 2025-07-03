@@ -512,7 +512,9 @@ public class MainWindowViewModel : ViewModel
         });
 
         _settingsManager.Save(_settings);
-        CommandManager.InvalidateRequerySuggested(); // Reevaluate CanExecute        
+        CommandManager.InvalidateRequerySuggested(); // Reevaluate CanExecute
+
+        BackupCommand.Execute(null); // Start backup immediately after adding a new location
     }
 
     private void OnSetMasterFolderExecuted(object? obj)
