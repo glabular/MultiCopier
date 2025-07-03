@@ -483,12 +483,22 @@ public class MainWindowViewModel : ViewModel
             {
                 return;
             }
-        }        
+        }
+
+        // Ask user if the backup location should be encrypted.
+        var encryptResponse = MessageBox.Show(
+            $"Do you want to have the files encrypted in this backup location?\n\n{selectedPath}",
+            "Encrypt Files",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        bool encryptFiles = encryptResponse == MessageBoxResult.Yes;
 
         var vm = new BackupLocationViewModel
         {
             Path = selectedPath,
-            Status = BackupStatus.Unknown
+            Status = BackupStatus.Unknown,
+            EncryptFiles = encryptFiles
         };
 
         vm.PropertyChanged += OnEncryptFilesCheckboxToggled;
@@ -498,7 +508,7 @@ public class MainWindowViewModel : ViewModel
         _settings.BackupFolders.Add(new BackupLocationSetting
         {
             Path = selectedPath,
-            EncryptFiles = false
+            EncryptFiles = encryptFiles
         });
 
         _settingsManager.Save(_settings);
