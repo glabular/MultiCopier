@@ -53,15 +53,27 @@ public static class FileSystemHelper
     /// <param name="path">A fully qualified path.</param>
     /// <returns>The file system format as a string (e.g., "NTFS", "FAT32").</returns>
     /// <exception cref="ArgumentException">Thrown when the path is null, empty, or not a valid root path.</exception>
+    /// <exception cref="DriveNotFoundException">Thrown when the drive specified in the path does not exist.</exception>
     private static string GetDriveFormat(string path)
     {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be null or whitespace.", nameof(path));
+        }
+
         var root = Path.GetPathRoot(path);
-        if (string.IsNullOrEmpty(root))
+        if (string.IsNullOrWhiteSpace(root))
         {
             throw new ArgumentException("Path must be a valid drive path.", nameof(path));
         }
 
-        return new DriveInfo(root).DriveFormat;
+        var drive = new DriveInfo(root);
+        if (!drive.IsReady)
+        {
+            throw new DriveNotFoundException($"Drive '{root}' is not ready or does not exist.");
+        }
+
+        return drive.DriveFormat;
     }
 
     /// <summary>
