@@ -6,7 +6,7 @@ namespace MultiCopierWPF.Services;
 /// <summary>
 /// Mock backup service implementation for design-time data and UI testing.
 /// </summary>
-public class DesignTimeBackupService : IBackupService, ISettingsService
+public class DesignTimeServices : IBackupService, ISettingsService
 {
     public Task AlignMasterWithDatabaseAsync(string masterFolder)
     {

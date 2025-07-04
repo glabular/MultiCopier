@@ -34,7 +34,7 @@ public class MainWindowViewModel : ViewModel
     #endregion
 
     // Parameterless constructor for design-time
-    public MainWindowViewModel() : this(new DesignTimeBackupService(), new DesignTimeBackupService())
+    public MainWindowViewModel() : this(new DesignTimeServices(), new DesignTimeServices())
     {
     }
 

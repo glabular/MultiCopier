@@ -22,7 +22,7 @@ public class ViewModelLocator
         {
             if (DesignerProperties.GetIsInDesignMode(new DependencyObject()))
             {
-                return new MainWindowViewModel(new DesignTimeBackupService(), new DesignTimeBackupService());
+                return new MainWindowViewModel(new DesignTimeServices(), new DesignTimeServices());
             }
             else
             {
