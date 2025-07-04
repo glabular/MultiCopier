@@ -205,6 +205,16 @@ public class MainWindowViewModel : ViewModel
         }
         finally
         {
+            _settings.BackupFolders = BackupLocations
+                .Select(b => new BackupLocationSetting
+                {
+                    Path = b.Path!,
+                    EncryptFiles = b.EncryptFiles,
+                    Status = b.Status
+                }).ToList();
+
+            _settingsManager.Save(_settings);
+
             IsBackupInProgress = false;
             CommandManager.InvalidateRequerySuggested();
         }
@@ -328,7 +338,7 @@ public class MainWindowViewModel : ViewModel
                 {
                     Path = setting.Path,
                     EncryptFiles = setting.EncryptFiles,
-                    Status = BackupStatus.OK
+                    Status = setting.Status
                 };
 
                 vm.PropertyChanged += OnEncryptFilesCheckboxToggled;
@@ -371,7 +381,8 @@ public class MainWindowViewModel : ViewModel
             .Select(b => new BackupLocationSetting
             {
                 Path = b.Path!,
-                EncryptFiles = b.EncryptFiles
+                EncryptFiles = b.EncryptFiles,
+                Status = b.Status
             }).ToList();
 
             _settingsManager.Save(_settings);
@@ -508,7 +519,8 @@ public class MainWindowViewModel : ViewModel
         _settings.BackupFolders.Add(new BackupLocationSetting
         {
             Path = selectedPath,
-            EncryptFiles = encryptFiles
+            EncryptFiles = encryptFiles,
+            Status = BackupStatus.Unknown
         });
 
         _settingsManager.Save(_settings);
