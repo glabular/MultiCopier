@@ -175,6 +175,8 @@ public class MainWindowViewModel : ViewModel
                 }
                 catch (FolderMismatchException ex)
                 {
+                    location.Status = BackupStatus.Failed;
+
                     MessageBox.Show(
                         $"{ex.Message}\n\nPlease try again or restart the app and attempt the backup again.",
                         "Backup Verification Failed",
