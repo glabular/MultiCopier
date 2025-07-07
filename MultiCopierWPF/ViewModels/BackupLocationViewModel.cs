@@ -1,5 +1,6 @@
 ﻿using MultiCopierWPF.Models;
 using MultiCopierWPF.ViewModels.Base;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace MultiCopierWPF.ViewModels;
 
@@ -19,7 +20,13 @@ public class BackupLocationViewModel : ViewModel
     public BackupStatus Status
     {
         get => _status;
-        set => Set(ref _status, value);
+        set
+        {
+            if (Set(ref _status, value))
+            {
+                OnPropertyChanged(nameof(IsStatusOk));
+            }
+        }
     }
 
     public bool EncryptFiles
@@ -27,4 +34,6 @@ public class BackupLocationViewModel : ViewModel
         get => _encryptFiles;
         set => Set(ref _encryptFiles, value);
     }
+
+    public bool IsStatusOk => Status == BackupStatus.OK;
 }

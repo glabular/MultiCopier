@@ -184,6 +184,7 @@
                                             VerticalAlignment="Center"
                                             Content="Encrypt"
                                             IsChecked="{Binding EncryptFiles, Mode=TwoWay}"
+                                            IsEnabled="{Binding IsStatusOk}"
                                             ToolTip="Whether to encrypt backup at this location." />
 
                                         <!--  Remove button  -->
