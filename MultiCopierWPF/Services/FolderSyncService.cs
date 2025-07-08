@@ -51,12 +51,14 @@ public class FolderSyncService : IFolderSyncService
                 // New file - copy it
                 _logger.LogInformation("Copying new file {FileName} to {TargetDir}", sFile.Name, target.FullName);
                 CopyAndPreserveTimestamp(sFile, Path.Combine(target.FullName, sFile.Name));
+                context.FilesCopied++;
             }
             else if (ShouldCopy(sFile, tFile, timeToleranceSeconds))
             {
                 // Updated file - overwrite
                 _logger.LogInformation("Updating file {FileName} in {TargetDir}", sFile.Name, target.FullName);
                 CopyAndPreserveTimestamp(sFile, tFile.FullName, overwrite: true);
+                context.FilesUpdated++;
             }
             else
             {
