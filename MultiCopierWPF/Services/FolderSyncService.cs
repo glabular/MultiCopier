@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using MultiCopierWPF.Interfaces;
+using MultiCopierWPF.Models;
 using MultiCopierWPF.Utilities;
 using System.IO;
 
@@ -19,7 +20,7 @@ public class FolderSyncService : IFolderSyncService
     /// </summary>
     /// <param name="source">The source directory (master folder).</param>
     /// <param name="target">The target directory (backup location).</param>
-    public void Mirror(DirectoryInfo source, DirectoryInfo target)
+    public void Mirror(DirectoryInfo source, DirectoryInfo target, SyncContext context)
     {
         _logger.LogInformation("Starting mirror from {Source} to {Target}", source.FullName, target.FullName);
 
@@ -28,16 +29,16 @@ public class FolderSyncService : IFolderSyncService
         // Account for FAT32's 2-second timestamp granularity to avoid unnecessary copies
         var timeToleranceSeconds = FileSystemHelper.IsFat32(target) ? 2 : 0;
 
-        SyncFiles(source, target, timeToleranceSeconds);
-        RemoveDeletedFiles(source, target);
+        SyncFiles(source, target, timeToleranceSeconds, context);
+        RemoveDeletedFiles(source, target, context);
 
-        SyncDirectories(source, target);
-        RemoveDeletedDirectories(source, target);
+        SyncDirectories(source, target, context);
+        RemoveDeletedDirectories(source, target, context);
 
         _logger.LogInformation("Completed mirror from {Source} to {Target}", source.FullName, target.FullName);
     }
 
-    private void SyncFiles(DirectoryInfo source, DirectoryInfo target, int timeToleranceSeconds)
+    private void SyncFiles(DirectoryInfo source, DirectoryInfo target, int timeToleranceSeconds, SyncContext context)
     {
         var sourceFiles = source.GetFiles();
         var targetFiles = target.GetFiles();
@@ -64,7 +65,7 @@ public class FolderSyncService : IFolderSyncService
         }
     }
 
-    private void RemoveDeletedFiles(DirectoryInfo source, DirectoryInfo target)
+    private void RemoveDeletedFiles(DirectoryInfo source, DirectoryInfo target, SyncContext context)
     {
         var sourceFileNames = new HashSet<string>(source.GetFiles().Select(f => f.Name));
         var targetFiles = target.GetFiles();
@@ -79,7 +80,7 @@ public class FolderSyncService : IFolderSyncService
         }
     }
 
-    private void SyncDirectories(DirectoryInfo source, DirectoryInfo target)
+    private void SyncDirectories(DirectoryInfo source, DirectoryInfo target, SyncContext context)
     {
         var sourceDirs = source.GetDirectories();
         var targetDirs = target.GetDirectories().ToDictionary(d => d.Name);
@@ -92,11 +93,11 @@ public class FolderSyncService : IFolderSyncService
                 tDir = target.CreateSubdirectory(sDir.Name);
             }
 
-            Mirror(sDir, tDir); // Recursive call
+            Mirror(sDir, tDir, context); // Recursive call
         }
     }
 
-    private void RemoveDeletedDirectories(DirectoryInfo source, DirectoryInfo target)
+    private void RemoveDeletedDirectories(DirectoryInfo source, DirectoryInfo target, SyncContext context)
     {
         var sourceDirNames = new HashSet<string>(source.GetDirectories().Select(d => d.Name));
         var targetDirs = target.GetDirectories();

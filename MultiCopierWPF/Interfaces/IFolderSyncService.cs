@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using MultiCopierWPF.Models;
+using System.IO;
 
 namespace MultiCopierWPF.Interfaces;
 
@@ -12,5 +13,6 @@ public interface IFolderSyncService
     /// </summary>
     /// <param name="source">The source directory to mirror from (master folder).</param>
     /// <param name="target">The target directory to mirror to (backup location).</param>
-    void Mirror(DirectoryInfo source, DirectoryInfo target);
+    /// <param name="context">TODO</param>
+    void Mirror(DirectoryInfo source, DirectoryInfo target, SyncContext context); // TODO: Add documentation for context parameter
 }
