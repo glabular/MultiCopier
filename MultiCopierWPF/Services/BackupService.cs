@@ -39,12 +39,15 @@ public class BackupService : IBackupService
         // Abort the backup if the target backup location doesn't have enough free space.
         FileSystemHelper.EnsureEnoughDiskSpace(masterDirInfo, backupFolder);
 
-        var context = new SyncContext();
+        var syncContext = new SyncContext();
 
         await Task.Run(() =>
         {
-            _folderSyncService.Mirror(masterDirInfo, backupDirInfo, context);
+            _folderSyncService.Mirror(masterDirInfo, backupDirInfo, syncContext);
         });
+
+        _logger.LogInformation("Backup complete: {FilesCopied} files copied, {FoldersCreated} folders created",
+            syncContext.FilesCopied, syncContext.DirectoriesCreated);
 
         await EnsureFolderCountsMatch(masterFolder, backupFolder);
     }
