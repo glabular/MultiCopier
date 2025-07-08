@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MultiCopierWPF.Data;
 using MultiCopierWPF.Exceptions;
 using MultiCopierWPF.Interfaces;
@@ -13,12 +14,18 @@ public class BackupService : IBackupService
     private readonly BackupDbContext _context;
     private readonly IFolderSyncService _folderSyncService;
     private readonly IHashCalculator _hashCalculator;
+    private readonly ILogger<BackupService> _logger;
 
-    public BackupService(BackupDbContext context, IFolderSyncService folderSyncService, IHashCalculator hashCalculator)
+    public BackupService(
+        BackupDbContext context,
+        IFolderSyncService folderSyncService,
+        IHashCalculator hashCalculator,
+        ILogger<BackupService> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _folderSyncService = folderSyncService ?? throw new ArgumentNullException(nameof(folderSyncService));
         _hashCalculator = hashCalculator ?? throw new ArgumentNullException(nameof(hashCalculator));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task RunBackupAsync(string masterFolder, string backupFolder, bool encrypt)
