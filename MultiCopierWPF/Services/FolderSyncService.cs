@@ -111,6 +111,7 @@ public class FolderSyncService : IFolderSyncService
             {
                 _logger.LogInformation("Deleting directory {DirName} from {TargetDir}", tDir.Name, target.FullName);
                 tDir.Delete(true);
+                context.DirectoriesDeleted++;
             }
         }
     }
