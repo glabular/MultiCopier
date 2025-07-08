@@ -93,6 +93,7 @@ public class FolderSyncService : IFolderSyncService
             {
                 _logger.LogInformation("Creating directory {DirName} in {TargetDir}", sDir.Name, target.FullName);
                 tDir = target.CreateSubdirectory(sDir.Name);
+                context.DirectoriesCreated++;
             }
 
             Mirror(sDir, tDir, context); // Recursive call
