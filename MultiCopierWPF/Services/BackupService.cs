@@ -46,8 +46,19 @@ public class BackupService : IBackupService
             _folderSyncService.Mirror(masterDirInfo, backupDirInfo, syncContext);
         });
 
-        _logger.LogInformation("Backup complete: {FilesCopied} files copied, {FoldersCreated} folders created",
-            syncContext.FilesCopied, syncContext.DirectoriesCreated);
+        _logger.LogInformation(
+            "Backup complete:\n" +
+            "{FilesCopied} files copied\n" +
+            "{FilesOverwritten} files overwritten\n" +
+            "{FilesDeleted} files deleted\n" +
+            "{DirectoriesCreated} directories created\n" +
+            "{DirectoriesDeleted} directories deleted",
+            syncContext.FilesCopied,
+            syncContext.FilesUpdated,
+            syncContext.FilesDeleted,
+            syncContext.DirectoriesCreated,
+            syncContext.DirectoriesDeleted);
+
 
         await EnsureFolderCountsMatch(masterFolder, backupFolder);
     }
