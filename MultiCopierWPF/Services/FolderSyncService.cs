@@ -78,6 +78,7 @@ public class FolderSyncService : IFolderSyncService
             {
                 _logger.LogInformation("Deleting file {FileName} from {TargetDir}", tFile.Name, target.FullName);
                 tFile.Delete();
+                context.FilesDeleted++;
             }
         }
     }
