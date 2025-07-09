@@ -1,23 +1,25 @@
 ﻿using MultiCopierWPF.Exceptions;
 using MultiCopierWPF.Infrastructure.Commands;
+using MultiCopierWPF.Interfaces;
 using MultiCopierWPF.Models;
 using MultiCopierWPF.Services;
+using MultiCopierWPF.Shared;
 using MultiCopierWPF.ViewModels.Base;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using MultiCopierWPF.Shared;
-using MultiCopierWPF.Interfaces;
 using MessageBox = System.Windows.MessageBox;
 
 namespace MultiCopierWPF.ViewModels;
 
 public class MainWindowViewModel : ViewModel
 {
+    #region Fields
     private readonly Settings _settings;
 
-    #region Fields
     private string? _masterFolder;
 
     private const int _maxBackups = 10;
@@ -32,7 +34,7 @@ public class MainWindowViewModel : ViewModel
     #endregion
 
     // Parameterless constructor for design-time
-    public MainWindowViewModel() : this(new DesignTimeBackupService(), new DesignTimeBackupService())
+    public MainWindowViewModel() : this(new DesignTimeServices(), new DesignTimeServices())
     {
     }
 
@@ -57,7 +59,7 @@ public class MainWindowViewModel : ViewModel
     /// <summary>
     /// Window title.
     /// </summary>
-    public static string? Title => "MultiCopier v0.1.2 [Stable]";
+    public static string? Title => "MultiCopier v0.2.0 [Stable]";
 
     public string? MasterFolder
     {
@@ -143,7 +145,7 @@ public class MainWindowViewModel : ViewModel
             {
                 try
                 {
-                    await _backupService.RunBackupAsync(MasterFolder!, location.Path!);
+                    await _backupService.RunBackupAsync(MasterFolder!, location.Path!, location.EncryptFiles);
 
                     location.Status = BackupStatus.OK;
                 }
@@ -173,6 +175,8 @@ public class MainWindowViewModel : ViewModel
                 }
                 catch (FolderMismatchException ex)
                 {
+                    location.Status = BackupStatus.Failed;
+
                     MessageBox.Show(
                         $"{ex.Message}\n\nPlease try again or restart the app and attempt the backup again.",
                         "Backup Verification Failed",
@@ -203,6 +207,16 @@ public class MainWindowViewModel : ViewModel
         }
         finally
         {
+            _settings.BackupFolders = BackupLocations
+                .Select(b => new BackupLocationSetting
+                {
+                    Path = b.Path!,
+                    EncryptFiles = b.EncryptFiles,
+                    Status = b.Status
+                }).ToList();
+
+            _settingsManager.Save(_settings);
+
             IsBackupInProgress = false;
             CommandManager.InvalidateRequerySuggested();
         }
@@ -302,7 +316,6 @@ public class MainWindowViewModel : ViewModel
         return string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath);
     }
 
-
     /// <summary>
     /// Loads master folder and backup locations from settings.
     /// </summary> 
@@ -323,15 +336,89 @@ public class MainWindowViewModel : ViewModel
         {
             foreach (var setting in _settings.BackupFolders)
             {
-                BackupLocations.Add(new BackupLocationViewModel
+                var vm = new BackupLocationViewModel
                 {
                     Path = setting.Path,
-                    Status = BackupStatus.OK
-                });
+                    EncryptFiles = setting.EncryptFiles,
+                    Status = setting.Status
+                };
+
+                vm.PropertyChanged += OnEncryptFilesCheckboxToggled;
+
+                BackupLocations.Add(vm);
             }
         }
 
         MasterFolder = _settings.MasterFolder;
+    }
+
+    private void OnEncryptFilesCheckboxToggled(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(BackupLocationViewModel.EncryptFiles))
+        {
+            return;
+        }
+
+        if (sender is not BackupLocationViewModel vm)
+        {
+            return;
+        }
+
+        bool requestedState = vm.EncryptFiles;
+
+        string action = requestedState ? "encrypt" : "decrypt";
+        string message = $"Are you sure you want to {action} files in this backup location?\n\n" +
+                         "This may take some time depending on the size of the data." +
+                         (requestedState
+                            ? string.Empty
+                            : "\n\nNote: Removing encryption may expose sensitive data.");
+
+        var result = MessageBox.Show(message, $"{action.ToUpper()} Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+        if (result == MessageBoxResult.Yes)
+        {
+            // Sync view models with saved settings by recreating the full list from UI state.
+            // This ensures settings file always reflects the current checkbox states.
+            _settings.BackupFolders = BackupLocations
+            .Select(b => new BackupLocationSetting
+            {
+                Path = b.Path!,
+                EncryptFiles = b.EncryptFiles,
+                Status = b.Status
+            }).ToList();
+
+            _settingsManager.Save(_settings);
+
+            // Call encryption/decryption logic
+            // Example placeholder:
+            _ = Task.Run(() => ProcessEncryptionAsync(vm.Path!, requestedState));
+
+            MessageBox.Show(
+                $"Files in {vm.Path} will be {(requestedState ? "encrypted" : "decrypted")} shortly.",
+                $"{action.ToUpper()} Scheduled",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        else
+        {
+            // Revert checkbox (unsubscribe to prevent infinite loop)
+            vm.PropertyChanged -= OnEncryptFilesCheckboxToggled;
+            vm.EncryptFiles = !requestedState;
+            vm.PropertyChanged += OnEncryptFilesCheckboxToggled;
+
+            MessageBox.Show(
+                $"No changes made to the encryption state for {vm.Path}.",
+                "Action Cancelled",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+    }
+
+    private async Task ProcessEncryptionAsync(string path, bool encrypt)
+    {
+        Debug.WriteLine($"{(encrypt ? "Encrypting" : "Decrypting")} {path}");
+        await Task.Delay(100);
+        Debug.WriteLine($"{(encrypt ? "Encrypted" : "Decrypted")} {path}");
     }
 
     /// <summary>
@@ -366,65 +453,83 @@ public class MainWindowViewModel : ViewModel
         };
 
         var result = dialog.ShowDialog();
-        if (result == System.Windows.Forms.DialogResult.OK)
+        if (result != System.Windows.Forms.DialogResult.OK)
         {
-            var selectedPath = dialog.SelectedPath;
-
-            if (IsFolderInvalid(selectedPath))
-            {
-                MessageBox.Show("The selected folder does not exist.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            var simulatedList = BackupLocations
-                .Select(b => b.Path)
-                .Where(p => p != null)
-                .Cast<string>()
-                .Append(selectedPath);
-
-            if (!PathCollisionValidator.TryValidate(MasterFolder!, simulatedList, out var errorMessage))
-            {
-                MessageBox.Show(errorMessage, "Cannot Add Backup Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var dirInfo = new DirectoryInfo(selectedPath);
-            var entries = dirInfo.EnumerateFileSystemInfos().ToList();
-
-            if (entries.Count != 0)
-            {
-                var itemCount = entries.Count;
-                var response = MessageBox.Show(
-                    $"The selected folder is not empty and contains {itemCount} item{(itemCount == 1 ? string.Empty : "s")}. " +
-                    "Are you sure you want to use it as a backup location? All existing content may be overwritten or deleted.",
-                    "Folder Not Empty",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning
-                );
-
-                if (response != MessageBoxResult.Yes)
-                {
-                    return;
-                }
-            }
-
-            var vm = new BackupLocationViewModel
-            {
-                Path = selectedPath,
-                Status = BackupStatus.Unknown
-            };
-
-            BackupLocations.Add(vm);
-
-            _settings.BackupFolders.Add(new BackupLocationSetting
-            {
-                Path = selectedPath,
-                EncryptFiles = false
-            });
-
-            _settingsManager.Save(_settings);
-            CommandManager.InvalidateRequerySuggested(); // Reevaluate CanExecute
+            return;
         }
+
+        var selectedPath = dialog.SelectedPath;
+
+        if (IsFolderInvalid(selectedPath))
+        {
+            MessageBox.Show("The selected folder does not exist.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        var simulatedList = BackupLocations
+            .Select(b => b.Path)
+            .Where(p => p != null)
+            .Cast<string>()
+            .Append(selectedPath);
+
+        if (!PathCollisionValidator.TryValidate(MasterFolder!, simulatedList, out var errorMessage))
+        {
+            MessageBox.Show(errorMessage, "Cannot Add Backup Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var dirInfo = new DirectoryInfo(selectedPath);
+        var entries = dirInfo.EnumerateFileSystemInfos().ToList();
+
+        if (entries.Count != 0)
+        {
+            var itemCount = entries.Count;
+            var response = MessageBox.Show(
+                $"The selected folder is not empty and contains {itemCount} item{(itemCount == 1 ? string.Empty : "s")}. " +
+                "Are you sure you want to use it as a backup location? All existing content may be overwritten or deleted.",
+                "Folder Not Empty",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning
+            );
+
+            if (response != MessageBoxResult.Yes)
+            {
+                return;
+            }
+        }
+
+        // TODO: Uncomment this for encryption.
+        // Ask user if the backup location should be encrypted.
+        //var encryptResponse = MessageBox.Show(
+        //    $"Do you want to have the files encrypted in this backup location?\n\n{selectedPath}",
+        //    "Encrypt Files",
+        //    MessageBoxButton.YesNo,
+        //    MessageBoxImage.Question);
+
+        //bool encryptFiles = encryptResponse == MessageBoxResult.Yes;
+
+        var vm = new BackupLocationViewModel
+        {
+            Path = selectedPath,
+            Status = BackupStatus.Unknown,
+            //EncryptFiles = encryptFiles
+        };
+
+        vm.PropertyChanged += OnEncryptFilesCheckboxToggled;
+
+        BackupLocations.Add(vm);
+
+        _settings.BackupFolders.Add(new BackupLocationSetting
+        {
+            Path = selectedPath,
+            //EncryptFiles = encryptFiles,
+            Status = BackupStatus.Unknown
+        });
+
+        _settingsManager.Save(_settings);
+        CommandManager.InvalidateRequerySuggested(); // Reevaluate CanExecute
+
+        BackupCommand.Execute(null); // Start backup immediately after adding a new location
     }
 
     private void OnSetMasterFolderExecuted(object? obj)
