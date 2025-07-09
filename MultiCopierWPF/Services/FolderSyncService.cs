@@ -29,19 +29,24 @@ public class FolderSyncService : IFolderSyncService
         // Account for FAT32's 2-second timestamp granularity to avoid unnecessary copies
         var timeToleranceSeconds = FileSystemHelper.IsFat32(target) ? 2 : 0;
 
-        SyncFiles(source, target, timeToleranceSeconds, context);
-        RemoveDeletedFiles(source, target, context);
+        // Get cached files & directories once
+        var sourceFiles = source.GetFiles();
+        var targetFiles = target.GetFiles();
 
-        SyncDirectories(source, target, context);
-        RemoveDeletedDirectories(source, target, context);
+        var sourceDirs = source.GetDirectories();
+        var targetDirs = target.GetDirectories().ToDictionary(d => d.Name);
+
+        SyncFiles(sourceFiles, targetFiles, target.FullName, timeToleranceSeconds, context);
+        RemoveDeletedFiles(sourceFiles, targetFiles, target.FullName, context);
+
+        SyncDirectories(sourceDirs, targetDirs, target, context);
+        RemoveDeletedDirectories(sourceDirs, [.. targetDirs.Values], target.FullName, context);
 
         _logger.LogInformation("Completed mirror from {Source} to {Target}", source.FullName, target.FullName);
     }
 
-    private void SyncFiles(DirectoryInfo source, DirectoryInfo target, int timeToleranceSeconds, SyncContext context)
+    private void SyncFiles(FileInfo[] sourceFiles, FileInfo[] targetFiles, string targetPath, int timeToleranceSeconds, SyncContext context)
     {
-        var sourceFiles = source.GetFiles();
-        var targetFiles = target.GetFiles();
         var targetFileMap = targetFiles.ToDictionary(f => f.Name);
 
         foreach (var sFile in sourceFiles)
@@ -49,51 +54,47 @@ public class FolderSyncService : IFolderSyncService
             if (!targetFileMap.TryGetValue(sFile.Name, out var tFile))
             {
                 // New file - copy it
-                _logger.LogInformation("Copying new file {FileName} to {TargetDir}", sFile.Name, target.FullName);
-                CopyAndPreserveTimestamp(sFile, Path.Combine(target.FullName, sFile.Name));
+                _logger.LogInformation("Copying new file {FileName} to {TargetDir}", sFile.Name, targetPath);
+                CopyAndPreserveTimestamp(sFile, Path.Combine(targetPath, sFile.Name));
                 context.FilesCopied++;
             }
             else if (ShouldCopy(sFile, tFile, timeToleranceSeconds))
             {
                 // Updated file - overwrite
-                _logger.LogInformation("Updating file {FileName} in {TargetDir}", sFile.Name, target.FullName);
+                _logger.LogInformation("Updating file {FileName} in {TargetDir}", sFile.Name, targetPath);
                 CopyAndPreserveTimestamp(sFile, tFile.FullName, overwrite: true);
                 context.FilesUpdated++;
             }
             else
             {
-                _logger.LogDebug("File {FileName} is up to date in {TargetDir}", sFile.Name, target.FullName);
+                _logger.LogDebug("File {FileName} is up to date in {TargetDir}", sFile.Name, targetPath);
             }
         }
     }
 
-    private void RemoveDeletedFiles(DirectoryInfo source, DirectoryInfo target, SyncContext context)
+    private void RemoveDeletedFiles(FileInfo[] sourceFiles, FileInfo[] targetFiles, string targetPath, SyncContext context)
     {
-        var sourceFileNames = new HashSet<string>(source.GetFiles().Select(f => f.Name));
-        var targetFiles = target.GetFiles();
+        var sourceFileNames = new HashSet<string>(sourceFiles.Select(f => f.Name));
 
         foreach (var tFile in targetFiles)
         {
             if (!sourceFileNames.Contains(tFile.Name))
             {
-                _logger.LogInformation("Deleting file {FileName} from {TargetDir}", tFile.Name, target.FullName);
+                _logger.LogInformation("Deleting file {FileName} from {TargetDir}", tFile.Name, targetPath);
                 tFile.Delete();
                 context.FilesDeleted++;
             }
         }
     }
 
-    private void SyncDirectories(DirectoryInfo source, DirectoryInfo target, SyncContext context)
+    private void SyncDirectories(DirectoryInfo[] sourceDirs, Dictionary<string, DirectoryInfo> targetDirMap, DirectoryInfo targetParent, SyncContext context)
     {
-        var sourceDirs = source.GetDirectories();
-        var targetDirs = target.GetDirectories().ToDictionary(d => d.Name);
-
         foreach (var sDir in sourceDirs)
         {
-            if (!targetDirs.TryGetValue(sDir.Name, out var tDir))
+            if (!targetDirMap.TryGetValue(sDir.Name, out var tDir))
             {
-                _logger.LogInformation("Creating directory {DirName} in {TargetDir}", sDir.Name, target.FullName);
-                tDir = target.CreateSubdirectory(sDir.Name);
+                _logger.LogInformation("Creating directory {DirName} in {TargetDir}", sDir.Name, targetParent.FullName);
+                tDir = targetParent.CreateSubdirectory(sDir.Name);
                 context.DirectoriesCreated++;
             }
 
@@ -101,16 +102,15 @@ public class FolderSyncService : IFolderSyncService
         }
     }
 
-    private void RemoveDeletedDirectories(DirectoryInfo source, DirectoryInfo target, SyncContext context)
+    private void RemoveDeletedDirectories(DirectoryInfo[] sourceDirs, DirectoryInfo[] targetDirs, string targetPath, SyncContext context)
     {
-        var sourceDirNames = new HashSet<string>(source.GetDirectories().Select(d => d.Name));
-        var targetDirs = target.GetDirectories();
+        var sourceDirNames = new HashSet<string>(sourceDirs.Select(d => d.Name));
 
         foreach (var tDir in targetDirs)
         {
             if (!sourceDirNames.Contains(tDir.Name))
             {
-                _logger.LogInformation("Deleting directory {DirName} from {TargetDir}", tDir.Name, target.FullName);
+                _logger.LogInformation("Deleting directory {DirName} from {TargetDir}", tDir.Name, targetPath);
                 tDir.Delete(true);
                 context.DirectoriesDeleted++;
             }
