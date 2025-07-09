@@ -22,27 +22,35 @@ public class FolderSyncService : IFolderSyncService
     /// <param name="target">The target directory (backup location).</param>
     public void Mirror(DirectoryInfo source, DirectoryInfo target, SyncContext context)
     {
-        _logger.LogInformation("Starting mirror from {Source} to {Target}", source.FullName, target.FullName);
+        try
+        {
+            _logger.LogInformation("Starting mirror from {Source} to {Target}", source.FullName, target.FullName);
 
-        Directory.CreateDirectory(target.FullName);
+            Directory.CreateDirectory(target.FullName);
 
-        // Account for FAT32's 2-second timestamp granularity to avoid unnecessary copies
-        var timeToleranceSeconds = FileSystemHelper.IsFat32(target) ? 2 : 0;
+            // Account for FAT32's 2-second timestamp granularity to avoid unnecessary copies
+            var timeToleranceSeconds = FileSystemHelper.IsFat32(target) ? 2 : 0;
 
-        // Get cached files & directories once
-        var sourceFiles = source.GetFiles();
-        var targetFiles = target.GetFiles();
+            // Get cached files & directories once
+            var sourceFiles = source.GetFiles();
+            var targetFiles = target.GetFiles();
 
-        var sourceDirs = source.GetDirectories();
-        var targetDirs = target.GetDirectories().ToDictionary(d => d.Name);
+            var sourceDirs = source.GetDirectories();
+            var targetDirs = target.GetDirectories().ToDictionary(d => d.Name);
 
-        SyncFiles(sourceFiles, targetFiles, target.FullName, timeToleranceSeconds, context);
-        RemoveDeletedFiles(sourceFiles, targetFiles, target.FullName, context);
+            SyncFiles(sourceFiles, targetFiles, target.FullName, timeToleranceSeconds, context);
+            RemoveDeletedFiles(sourceFiles, targetFiles, target.FullName, context);
 
-        SyncDirectories(sourceDirs, targetDirs, target, context);
-        RemoveDeletedDirectories(sourceDirs, [.. targetDirs.Values], target.FullName, context);
+            SyncDirectories(sourceDirs, targetDirs, target, context);
+            RemoveDeletedDirectories(sourceDirs, [.. targetDirs.Values], target.FullName, context);
 
-        _logger.LogInformation("Completed mirror from {Source} to {Target}", source.FullName, target.FullName);
+            _logger.LogInformation("Completed mirror from {Source} to {Target}", source.FullName, target.FullName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception during mirror from {Source} to {Target}", source.FullName, target.FullName);
+            throw;
+        }
     }
 
     private void SyncFiles(FileInfo[] sourceFiles, FileInfo[] targetFiles, string targetPath, int timeToleranceSeconds, SyncContext context)
