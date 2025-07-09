@@ -179,13 +179,13 @@
                                         VerticalAlignment="Center"
                                         Orientation="Horizontal">
                                         <!--  Encryption checkbox  -->
-                                        <CheckBox
+                                        <!--<CheckBox
                                             Margin="0,0,10,0"
                                             VerticalAlignment="Center"
                                             Content="Encrypt"
                                             IsChecked="{Binding EncryptFiles, Mode=TwoWay}"
                                             IsEnabled="{Binding IsStatusOk}"
-                                            ToolTip="Whether to encrypt backup at this location." />
+                                            ToolTip="Whether to encrypt backup at this location." />-->
 
                                         <!--  Remove button  -->
                                         <Button

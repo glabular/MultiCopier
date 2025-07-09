@@ -59,7 +59,7 @@ public class MainWindowViewModel : ViewModel
     /// <summary>
     /// Window title.
     /// </summary>
-    public static string? Title => "MultiCopier v0.1.2 [Stable]";
+    public static string? Title => "MultiCopier v0.2.0 [Stable]";
 
     public string? MasterFolder
     {
@@ -498,20 +498,21 @@ public class MainWindowViewModel : ViewModel
             }
         }
 
+        // TODO: Uncomment this for encryption.
         // Ask user if the backup location should be encrypted.
-        var encryptResponse = MessageBox.Show(
-            $"Do you want to have the files encrypted in this backup location?\n\n{selectedPath}",
-            "Encrypt Files",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+        //var encryptResponse = MessageBox.Show(
+        //    $"Do you want to have the files encrypted in this backup location?\n\n{selectedPath}",
+        //    "Encrypt Files",
+        //    MessageBoxButton.YesNo,
+        //    MessageBoxImage.Question);
 
-        bool encryptFiles = encryptResponse == MessageBoxResult.Yes;
+        //bool encryptFiles = encryptResponse == MessageBoxResult.Yes;
 
         var vm = new BackupLocationViewModel
         {
             Path = selectedPath,
             Status = BackupStatus.Unknown,
-            EncryptFiles = encryptFiles
+            //EncryptFiles = encryptFiles
         };
 
         vm.PropertyChanged += OnEncryptFilesCheckboxToggled;
@@ -521,7 +522,7 @@ public class MainWindowViewModel : ViewModel
         _settings.BackupFolders.Add(new BackupLocationSetting
         {
             Path = selectedPath,
-            EncryptFiles = encryptFiles,
+            //EncryptFiles = encryptFiles,
             Status = BackupStatus.Unknown
         });
 
