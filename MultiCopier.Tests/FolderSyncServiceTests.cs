@@ -475,6 +475,40 @@ public class FolderSyncServiceTests
         }
     }
 
+    /// <summary>
+    /// Ensures that the mirror operation does not modify or delete files
+    /// in the source directory, even if those files are not present in the target.
+    /// </summary>
+    [Fact]
+    public void Mirror_DoesNotDeleteSourceDirectories_WhenTheyAreMissingInTarget()
+    {
+        // Arrange
+        var sourcePath = CreateTempDirectory();
+        var targetPath = CreateTempDirectory();
+
+        try
+        {
+            // Create a subdirectory only in the source
+            var extraSourceSubdir = Path.Combine(sourcePath, "ImportantSourceOnlyFolder");
+            Directory.CreateDirectory(extraSourceSubdir);
+
+            var context = new SyncContext();
+            var service = CreateService();
+
+            // Act
+            service.Mirror(new DirectoryInfo(sourcePath), new DirectoryInfo(targetPath), context);
+
+            // Assert
+            Assert.True(Directory.Exists(extraSourceSubdir), "Mirror should not delete folders from the source directory.");
+        }
+        finally
+        {
+            CleanupDirectory(sourcePath);
+            CleanupDirectory(targetPath);
+        }
+    }
+
+
     private FolderSyncService CreateService()
     {
         return new FolderSyncService(_logger);
