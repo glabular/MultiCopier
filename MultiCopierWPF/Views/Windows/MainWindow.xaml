@@ -187,6 +187,21 @@
                                             IsEnabled="{Binding IsStatusOk}"
                                             ToolTip="Whether to encrypt backup at this location." />-->
 
+                                        <!--  Open location button  -->
+                                        <Button
+                                            Width="50"
+                                            Height="30"
+                                            Margin="0,0,5,0"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Command="{Binding DataContext.OpenBackupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="Open this backup location">
+                                            <Button.Content>
+                                                <TextBlock FontSize="16" Text="📂" />
+                                            </Button.Content>
+                                        </Button>
+
                                         <!--  Remove button  -->
                                         <Button
                                             Width="30"

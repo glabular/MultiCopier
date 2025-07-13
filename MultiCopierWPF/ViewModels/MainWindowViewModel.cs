@@ -48,6 +48,7 @@ public class MainWindowViewModel : ViewModel
         ShallowCheckCommand = new RelayCommand(OnShallowCheckExecuted, CanShallowCheckExecute);
         RemoveBackupCommand = new RelayCommand(OnRemoveBackupExecuted, CanRemoveBackupExecute);
         SetMasterFolderCommand = new RelayCommand(OnSetMasterFolderExecuted);
+        OpenBackupCommand = new RelayCommand(OnOpenBackupExecuted, CanOpenBackupExecute);
 
         InitializeLocations();
 
@@ -59,7 +60,7 @@ public class MainWindowViewModel : ViewModel
     /// <summary>
     /// Window title.
     /// </summary>
-    public static string? Title => "MultiCopier v0.2.0 [Stable]";
+    public static string? Title => "MultiCopier v0.2.1 [Stable]";
 
     public string? MasterFolder
     {
@@ -100,6 +101,8 @@ public class MainWindowViewModel : ViewModel
     public ICommand ShallowCheckCommand { get; }
 
     public ICommand SetMasterFolderCommand { get; }
+
+    public ICommand OpenBackupCommand { get; }
 
     #endregion
 
@@ -630,4 +633,34 @@ public class MainWindowViewModel : ViewModel
     }
 
     private bool CanRemoveBackupExecute(object? param) => param is BackupLocationViewModel;
+
+    /// <summary>
+    /// Executes the command to open the specified backup folder using File Explorer.
+    /// </summary>
+    private void OnOpenBackupExecuted(object? param)
+    {
+        if (param is BackupLocationViewModel backup && !string.IsNullOrWhiteSpace(backup.Path))
+        {
+            if (Directory.Exists(backup.Path))
+            {
+                try
+                {
+                    Process.Start("explorer.exe", backup.Path);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to open the folder.\n\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show("The folder does not exist.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+    }
+
+    private bool CanOpenBackupExecute(object? param)
+    {
+        return param is BackupLocationViewModel backup && !string.IsNullOrWhiteSpace(backup.Path);
+    }
 }
